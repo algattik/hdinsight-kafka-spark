@@ -1,0 +1,12 @@
+{"namespace": "example.avro",
+ "type": "record",
+ "name": "Tweet",
+ "fields": [
+     {"name": "id", "type": "long"},
+     {"name": "createdAt", "type": "long", "logicalType": "timestamp-millis"},
+     {"name": "lang", "type": "string"},
+     {"name": "retweetCount", "type": "int"},
+     {"name": "text", "type": "string"},
+     {"name": "location", "type": "string"}
+ ]
+}
