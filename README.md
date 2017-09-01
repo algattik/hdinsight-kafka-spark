@@ -25,8 +25,6 @@ This example uses two Scala applications that you will run on HDInsight 3.5. The
 
 * __Power BI__: We will consume the data from Spark into an interactive dashboard.
 
-See the following section on how to obtain the Kafka broker and Zookeeper host information.
-
 ## To run this example
 
 ### Deploy ARM Template
@@ -132,7 +130,7 @@ kafka-console-consumer --bootstrap-server KAFKA_BROKER --topic tweets --from-beg
 
 You should see output similar to the following. The xxd command shows the hex content of the stream, and the content in ASCII on the right (replaced by `.' for non-printable characters).
 
-````text
+```text
 00000000: 0000 0000 1582 c0ba 919e b098 8a19 8095  ................
 00000010: 80d5 c757 0466 7200 9202 5254 2040 5947  ...W.fr...RT @YG
 00000020: 4b65 7265 3a20 566f 7573 2c20 6c65 7320  Kere: Vous, les 
