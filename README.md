@@ -1,8 +1,7 @@
-# Use Avro with Apache Kafka and Apache Spark on HDInsight.
+# Use Avro with Apache Kafka and Apache Spark on HDInsight
 
-This is a simple example of streaming Avro data from Kafka on HDInsight to a Spark on HDInsight cluster. This example uses Kafka DStreams.
+This is a simple example of streaming Avro data from Kafka on HDInsight to a Spark on HDInsight cluster, and exposing the resulting data in Power BI.
 It is inspired by the [basic example at Azure Samples](https://github.com/Azure-Samples/hdinsight-spark-scala-kafka).
-
 
 ## Understand this example
 
@@ -12,9 +11,14 @@ This example uses two Scala applications that you will run on HDInsight 3.5. The
 
 * __Kafka brokers__: The broker process runs on each workernode on the Kafka cluster. The list of brokers is required by the producer component, which writes data to Kafka.
 
+* __Schema Registry__: As Avro is a schema-base serialization scheme, we use the [Confluent Schema Registry](http://docs.confluent.io/current/schema-registry/docs/intro.html) to maintain the schemas in a robust manner between producer and consumer. We also use the Confluent Avro Kafka Serializer, that prepends Avro data with the unique (versioned) identifier of the schema in the registry. This allows schema evolutions in a robust manner:
+
+| magic number | schema id | Avro data |
+| 0x00 | 0x00 0x00 0x00 0x01 | bytes... |
+
 * A __Producer application__: The `spark-twitter-produce` standalone application uses Twitter to populate data in Kafka. If you do not have a Twitter app set up, visit [](https://apps.twitter.com) to create one.
 
-* A __Consumer Spark application__: The `spark-twitter-produce` Spark application consumes data from Kafka as streams into Parquet files.
+* A __Consumer Spark application__: The `spark-twitter-consume` Spark application consumes data from Kafka as streams into Parquet files. We use Kafka DStreams and Spark Streaming.
 
 * __Hive__: We will configure an external table in Hive to expose the Parquet files as a table.
 
@@ -60,16 +64,32 @@ You will be notified in the portal after about 20 minutes that the solution has 
 
 ### Provision required programs on the Spark cluster
 
-Navigate to your [HDInsight clusters](https://ms.portal.azure.com/#blade/HubsExtension/Resources/resourceType/Microsoft.HDInsight%2Fclusters). Click on your "spark-BASENAME" cluster, then **Secure Shell (SSH)** and follow the instructions to SSH to your Spark cluster.
+Navigate to your [HDInsight clusters](https://portal.azure.com/#blade/HubsExtension/Resources/resourceType/Microsoft.HDInsight%2Fclusters). Click on your "spark-BASENAME" cluster, then **Secure Shell (SSH)** and follow the instructions to SSH to your Spark cluster.
 
 On the Spark cluster, clone the project and install the required tooling:
 ```bash
-git clone https://github.com/algattik/hdinsight-spark-scala-kafka
-cd hdinsight-spark-scala-kafka
+git clone https://github.com/algattik/hdinsight-kafka-spark
+cd hdinsight-kafka-spark
 ./provision.sh
 ```
 
+### Run Schema Registry
+
+```bash
+cp /etc/schema-registry/schema-registry.properties .
+```
+
+Use your favorite Unix editor to edit the file schema-registry.properties . You'll need to set **kafkastore.connection.url** to your Zookeeper hosts determined above (**Not your Kafka brokers**).
+
+```bash
+schema-registry-start /etc/schema-registry/schema-registry.properties
+```
+
+Leave the schema registry running.
+
 ### Run the Producer program to stream tweets to Kafka
+
+In parallel, open a second SSH shell to the Spark server.
 
 Compile and run the Producer program.
 
@@ -96,10 +116,10 @@ You should see that Tweets are consumed. Leave the session running.
 
 ### Run the Consumer program to stream tweets from Kafka to Spark
 
-In parallel, open a second SSH shell to the Spark server.
+In parallel, open a third SSH shell to the Spark server.
 
 ```bash
-cd hdinsight-spark-scala-kafka
+cd hdinsight-kafka-spark
 cd spark-twitter-consume
 sbt assembly
 ```
@@ -136,7 +156,9 @@ On the Azure portal, navigate to your Spark cluster, and Select Ambari views fro
 
 When prompted, enter the cluster login (default: _admin_) and password used when you created the cluster.
 
-Run the following queries one after the other:
+Run the following queries one after the other.
+
+First we create a Hive **external table** referencing the Parquet files on HDFS.
 
 ```sql
 DROP TABLE IF EXISTS tweets ;
@@ -145,11 +167,13 @@ PARTITIONED BY (year INT, month INT, day INT)
 STORED AS PARQUET LOCATION '/twitter/tweets.parquet';
 ```
 
-Change the values for year, month and day to the date you ran the Spark application (as seen in the Parquet file partitions):
+Before executing the query below, change the values for year, month and day to the date you ran the Spark application (as seen in the Parquet file partitions):
 
 ```sql
 ALTER TABLE tweets ADD PARTITION(year=2017, month=8, day=31);
 ```
+
+Let's see a sample of data from that table:
 
 ```sql
 SELECT * FROM tweets LIMIT 5;
@@ -158,7 +182,7 @@ You should see a sample of the Tweet data.
 
 ### Consume data in Power BI
 
-Open Power BI Desktop. Select Get Data -> Azure HDInsight Spark. Enter your Spark server (CLUSTERNAME.azurehdinsight.net) and your admin credentials.
+Open Power BI Desktop. Select **Get Data**, then **Azure HDInsight Spark**. Enter your Spark server (CLUSTERNAME.azurehdinsight.net) and your admin credentials.
 
 You can now design and publish a dashboard from your data.
 
