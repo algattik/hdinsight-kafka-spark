@@ -14,6 +14,7 @@ This example uses two Scala applications that you will run on HDInsight 3.5. The
 * __Schema Registry__: As Avro is a schema-base serialization scheme, we use the [Confluent Schema Registry](http://docs.confluent.io/current/schema-registry/docs/intro.html) to maintain the schemas in a robust manner between producer and consumer. We also use the Confluent Avro Kafka Serializer, that prepends Avro data with the unique (versioned) identifier of the schema in the registry. This allows schema evolutions in a robust manner:
 
 | magic number | schema id | Avro data |
+| ------------ | --------- | --------- |
 | 0x00 | 0x00 0x00 0x00 0x01 | bytes... |
 
 * A __Producer application__: The `spark-twitter-produce` standalone application uses Twitter to populate data in Kafka. If you do not have a Twitter app set up, visit [](https://apps.twitter.com) to create one.
@@ -26,9 +27,29 @@ This example uses two Scala applications that you will run on HDInsight 3.5. The
 
 See the following section on how to obtain the Kafka broker and Zookeeper host information.
 
-## <a name="kafkahosts"></a>Get Kafka host information
+## To run this example
 
-From your development environment, use the following commands to retrieve the broker and Zookeeper information. Replace __PASSWORD__ with the login (admin) password you used when creating the cluster. Replace __BASENAME__ with the base name you used when creating the cluster.
+### Deploy ARM Template
+
+In The Azure portal, select **New** -> **Template deployment** (or navigate directly to [Template deployment](https://portal.azure.com/#create/Microsoft.Template)). Click **Build your own template in the editor**, then **Load file** and upload the "create-linux-based-kafka-spark-cluster-in-vnet.json" file from this solution, then **Save**. Fill in the parameters and click **Purchase**.
+
+You will be notified in the portal after about 15 minutes that the solution has been deployed.
+
+
+### Provision required programs on the Spark cluster
+
+Navigate to your [HDInsight clusters](https://portal.azure.com/#blade/HubsExtension/Resources/resourceType/Microsoft.HDInsight%2Fclusters). Click on your "spark-BASENAME" cluster, then **Secure Shell (SSH)** and follow the instructions to SSH to your Spark cluster.
+
+On the Spark cluster, clone the project and install the required tooling (SBT and Schema Registry):
+```bash
+git clone https://github.com/algattik/hdinsight-kafka-spark
+cd hdinsight-kafka-spark
+./provision.sh
+```
+
+### Get Kafka host information
+
+In your SSH session, use the following commands to retrieve the broker and Zookeeper information. Replace __PASSWORD__ with the login (admin) password you used when creating the cluster. Replace __BASENAME__ with the base name you used when creating the cluster.
 
 * To get the __Kafka broker__ information:
 
@@ -54,26 +75,10 @@ Both commands return information similar to the following text:
 
 Save this information; you will need it for configuring the applications.
 
-## To run this example
-
-### Deploy ARM Template
-
-In The Azure portal, select **New** -> **Template deployment** (or navigate directly to [Template deployment](https://portal.azure.com/#create/Microsoft.Template)). Click **Build your own template in the editor**, then **Load file** and upload the "create-linux-based-kafka-spark-cluster-in-vnet.json" file from this solution, then **Save**. Fill in the parameters and click **Purchase**.
-
-You will be notified in the portal after about 20 minutes that the solution has been deployed.
-
-### Provision required programs on the Spark cluster
-
-Navigate to your [HDInsight clusters](https://portal.azure.com/#blade/HubsExtension/Resources/resourceType/Microsoft.HDInsight%2Fclusters). Click on your "spark-BASENAME" cluster, then **Secure Shell (SSH)** and follow the instructions to SSH to your Spark cluster.
-
-On the Spark cluster, clone the project and install the required tooling:
-```bash
-git clone https://github.com/algattik/hdinsight-kafka-spark
-cd hdinsight-kafka-spark
-./provision.sh
-```
 
 ### Run Schema Registry
+
+First create a customized configuration file:
 
 ```bash
 cp /etc/schema-registry/schema-registry.properties .
@@ -81,8 +86,10 @@ cp /etc/schema-registry/schema-registry.properties .
 
 Use your favorite Unix editor to edit the file schema-registry.properties . You'll need to set **kafkastore.connection.url** to your Zookeeper hosts determined above (**Not your Kafka brokers**).
 
+Then run the Schema Registry:
+
 ```bash
-schema-registry-start /etc/schema-registry/schema-registry.properties
+schema-registry-start schema-registry.properties
 ```
 
 Leave the schema registry running.
@@ -97,13 +104,14 @@ Compile and run the Producer program.
 The first time, the program will fail with an error message but will create a default configuration file ../application.properties for you to edit.
 
 ```bash
+cd hdinsight-kafka-spark
 cd spark-twitter-produce
 sbt run
 ```
 
 Use your favorite Unix editor to edit the file ../application.properties .
 
-At a minimum you will need to fill the kafka.brokers line with the brokers, and your Twitter authentication information.
+At a minimum you will need to fill the **kafka.brokers** line with the brokers, and your Twitter authentication information.
 
 Run the program again:
 
@@ -111,8 +119,43 @@ Run the program again:
 sbt run
 ```
 
-You should see that Tweets are consumed. Leave the session running.
+You should see that Tweets are sent to Kafka. Leave the session running.
 
+
+### _(Optional)_ View the Kafka stream
+
+Run the following command, replacing KAFKA_BROKER with your Kafka broker endpoint:
+
+```bash
+kafka-console-consumer --bootstrap-server KAFKA_BROKER --topic tweets --from-beginning | xxd | head -20
+```
+
+You should see output similar to the following. The xxd command shows the hex content of the stream, and the content in ASCII on the right (replaced by `.' for non-printable characters).
+
+````text
+00000000: 0000 0000 1582 c0ba 919e b098 8a19 8095  ................
+00000010: 80d5 c757 0466 7200 9202 5254 2040 5947  ...W.fr...RT @YG
+00000020: 4b65 7265 3a20 566f 7573 2c20 6c65 7320  Kere: Vous, les 
+00000030: 6c69 7665 732c 2023 4761 6d65 4f66 5468  lives, #GameOfTh
+00000040: 726f 6e65 732c 206c 6573 2072 6563 6f72  rones, les recor
+00000050: 6473 2e2e 2e20 556e 20c3 a974 c3a9 2074  ds... Un ..t.. t
+00000060: 72c3 a873 2063 6f6d 706c 6971 75c3 a920  r..s compliqu.. 
+00000070: 706f 7572 2040 4772 6567 5f69 735f 4269  pour @Greg_is_Bi
+00000080: 6742 2065 7420 6d6f 692c 206d 6169 7320  gB et moi, mais 
+00000090: 7175 656c 20c3 a974 c3a9 2070 6f75 72e2  quel ..t.. pour.
+000000a0: 80a6 2020 426f 7264 6561 7578 2c20 4672  ..  Bordeaux, Fr
+000000b0: 616e 6365 0a00 0000 0015 8880 bdb1 a9b0  ance............
+000000c0: 988a 1980 9580 d5c7 5704 746c 00e8 0152  ........W.tl...R
+000000d0: 5420 4039 4741 473a 204e 6120 6e61 206e  T @9GAG: Na na n
+000000e0: 6120 6e61 206e 6120 6e61 206e 6120 6e61  a na na na na na
+000000f0: 2061 2067 6972 6c20 6861 7320 6e6f 206e   a girl has no n
+00000100: 616d 652e 2023 6761 6d65 6f66 7468 726f  ame. #gameofthro
+00000110: 6e65 730a 6874 7470 733a 2f2f 742e 636f  nes.https://t.co
+00000120: 2f6f 6a68 5464 6f6d 7967 7020 6874 7470  /ojhTdomygp http
+00000130: 733a 2f2f 742e 636f 2f65 395a 315a 4777  s://t.co/e9Z1ZGw
+Unable to write to standard out, closing consumer.
+Processed a total of 73 messages
+```
 
 ### Run the Consumer program to stream tweets from Kafka to Spark
 
@@ -124,7 +167,7 @@ cd spark-twitter-consume
 sbt assembly
 ```
 
-Now that we have assembled our Spark application package, we submit it as a Spark job:
+Now that we have assembled our Spark application package, we submit it as a Spark 2 job:
 
 ```bash
 export SPARK_HOME=/usr/hdp/current/spark2-client
@@ -132,7 +175,9 @@ export SPARK_MAJOR_VERSION=2
 spark-submit target/scala-2.11/spark-twitter-consume-assembly-1.0.jar
 ```
 
-The job will run for a few minutes and create Parquet files on HDFS, at the location defined in your properties file (by default /twitter/tweets.parquet).
+The job will run for a few minutes and create every few seconds Parquet files on HDFS, at the location defined in your properties file (by default /twitter/tweets.parquet).
+
+We can inspect the files as follows:
 
 ```bash
 hdfs dfs -ls -R /twitter
@@ -178,7 +223,10 @@ Let's see a sample of data from that table:
 ```sql
 SELECT * FROM tweets LIMIT 5;
 ```
+
 You should see a sample of the Tweet data.
+
+![Hive Query Result](media/hive-query-output.png)
 
 ### Consume data in Power BI
 
@@ -187,3 +235,12 @@ Open Power BI Desktop. Select **Get Data**, then **Azure HDInsight Spark**. Ente
 You can now design and publish a dashboard from your data.
 
 ![Power BI Dashboard](media/powerbi.png)
+
+## Inspect the code
+
+* [Producer code](spark-twitter-produce/src/main/scala/produce.scala)
+* [Consumer code](spark-twitter-consume/src/main/scala/consume.scala)
+* [Avro schema](spark-twitter-produce/src/main/resources/avro/twitter.avsc)
+
+
+

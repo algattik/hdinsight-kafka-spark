@@ -56,15 +56,14 @@ class consume {
         Subscribe[String, GenericRecord](topics, kafkaParams)
       )
 
-      // Get only the tweets (in JSON format)
-      val tweetsJSON = messageStream.map(record => record.value)
+      // Get only the tweets (in deserialized Avro format)
+      val tweetsAvro = messageStream.map(record => record.value)
 
-      // Convert the records to JSON dataframes, so we can select interesting values
-      tweetsJSON.foreachRDD {
+      // Convert the records to dataframes, so we can select interesting values
+      tweetsAvro.foreachRDD {
         rdd =>
           // because sometimes there's not really an RDD there
           if (rdd.count() >= 1) {
-            // Parse the JSON and infer a schema
             val tweetObj = rdd.map(
               v => {
                 Row.fromSeq(List[Any](
@@ -119,7 +118,7 @@ class consume {
     ssc.start()
 
     // Set the stream to run with a timeout of batchInterval * 60 * 1000 seconds
-    ssc.awaitTerminationOrTimeout(batchInterval * 60 * 700 /* * 1000 */)
+    ssc.awaitTerminationOrTimeout(batchInterval * 60 * 1000)
   }
 
 

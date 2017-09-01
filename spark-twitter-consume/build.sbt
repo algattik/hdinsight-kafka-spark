@@ -1,5 +1,5 @@
 
-name := "spark-twitter-produce"
+name := "spark-twitter-consume"
 
 version := "1.0"
 
