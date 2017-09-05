@@ -27,6 +27,10 @@ This example uses two Scala applications that you will run on HDInsight 3.5. The
 
 ## To run this example
 
+### Get Twitter API credentials
+
+Navigate to the [Twitter Developers website](https://apps.twitter.com), sign in with your Twitter account credentials, and click Create New App. Follow the steps and take note of the generated credentials.
+
 ### Deploy ARM Template
 
 In The Azure portal, select **New** -> **Template deployment** (or navigate directly to [Template deployment](https://portal.azure.com/#create/Microsoft.Template)). Click **Build your own template in the editor**, then **Load file** and upload the "create-linux-based-kafka-spark-cluster-in-vnet.json" file from this solution, then **Save**. Fill in the parameters and click **Purchase**.
@@ -76,7 +80,7 @@ Save this information; you will need it for configuring the applications.
 
 ### Run Schema Registry
 
-First create a customized configuration file:
+On the Spark head node, first create a customized configuration file:
 
 ```bash
 cp /etc/schema-registry/schema-registry.properties .
