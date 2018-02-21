@@ -1,47 +1,54 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
-    "contentVersion": "1.0.0.0",
-    "parameters": {
-        "baseClusterName": {
-            "type": "string",
-            "metadata": {
-                "description": "The base name used to create resources; spark-basename, kafka-basename, basename-vnet, basenamestore."
-            }
-        },
-        "clusterLoginUserName": {
-            "type": "string",
-            "defaultValue": "admin",
-            "metadata": {
-                "description": "These credentials can be used to submit jobs to the cluster and to log into cluster dashboards."
-            }
-        },
-        "clusterLoginPassword": {
-            "type": "securestring",
-            "metadata": {
-                "description": "The password must be at least 10 characters in length and must contain at least one digit, one non-alphanumeric character, and one upper or lower case letter."
-            }
-        },
-        "sshUserName": {
-            "type": "string",
-            "defaultValue": "sshuser",
-            "metadata": {
-                "description": "These credentials can be used to remotely access the cluster."
-            }
-        },
-        "sshPassword": {
-            "type": "securestring",
-            "metadata": {
-                "description": "The password must be at least 10 characters in length and must contain at least one digit, one non-alphanumeric character, and one upper or lower case letter."
-            }
-        },
-        "location": {
-            "type": "string",
-            "defaultValue": "East US 2",
-            "metadata": {
-                "description": "The location for the resource group, vnet, storage accounts and the clusters."
-            }
-        }
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "baseClusterName": {
+      "type": "string",
+      "metadata": {
+        "description": "The base name used to create resources; spark-basename, kafka-basename, basename-vnet, basenamestore."
+      }
     },
+    "clusterLoginUserName": {
+      "type": "string",
+      "defaultValue": "admin",
+      "metadata": {
+        "description": "These credentials can be used to submit jobs to the cluster and to log into cluster dashboards."
+      }
+    },
+    "clusterLoginPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "The password must be at least 10 characters in length and must contain at least one digit, one non-alphanumeric character, and one upper or lower case letter."
+      }
+    },
+    "clusterVersion": {
+      "type": "string",
+      "defaultValue": "3.5",
+      "metadata": {
+        "description": "HDInsight cluster version."
+      }
+    },
+    "sshUserName": {
+      "type": "string",
+      "defaultValue": "sshuser",
+      "metadata": {
+        "description": "These credentials can be used to remotely access the cluster."
+      }
+    },
+    "sshPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "The password must be at least 10 characters in length and must contain at least one digit, one non-alphanumeric character, and one upper or lower case letter."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "East US 2",
+      "metadata": {
+        "description": "The location for the resource group, vnet, storage accounts and the clusters."
+      }
+    }
+  },
   "variables": {
     "defaultApiVersion": "2015-05-01-preview",
     "clusterApiVersion": "2015-03-01-preview",
@@ -61,8 +68,8 @@
       "type": "Microsoft.Network/virtualNetworks",
       "location": "[parameters('location')]",
       "apiVersion": "[variables('defaultApiVersion')]",
-      "dependsOn": [ ],
-      "tags": { },
+      "dependsOn": [],
+      "tags": {},
       "properties": {
         "addressSpace": {
           "addressPrefixes": [
@@ -84,8 +91,8 @@
       "type": "Microsoft.Storage/storageAccounts",
       "location": "[parameters('location')]",
       "apiVersion": "[variables('defaultApiVersion')]",
-      "dependsOn": [ ],
-      "tags": { },
+      "dependsOn": [],
+      "tags": {},
       "properties": {
         "accountType": "Standard_LRS"
       }
@@ -99,10 +106,11 @@
         "[concat('Microsoft.Storage/storageAccounts/',variables('clusterStorageAccountName'))]",
         "[concat('Microsoft.Network/virtualNetworks/',variables('clusterVNetName'))]"
       ],
-      "tags": { },
+      "tags": {},
       "properties": {
-        "clusterVersion": "3.5",
+        "clusterVersion": "[parameters('clusterVersion')]",
         "osType": "Linux",
+        "tier": "standard",
         "clusterDefinition": {
           "kind": "KAFKA",
           "configurations": {
@@ -157,7 +165,13 @@
               "virtualNetworkProfile": {
                 "id": "[resourceId('Microsoft.Network/virtualNetworks', variables('clusterVNetName'))]",
                 "subnet": "[concat(resourceId('Microsoft.Network/virtualNetworks', variables('clusterVNetName')), '/subnets/', variables('clusterVNetSubnetName'))]"
-              }
+              },
+              "scriptActions": [],
+              "dataDisksGroups": [
+                {
+                  "disksPerNode": 2
+                }
+              ]
             },
             {
               "name": "zookeepernode",
@@ -174,7 +188,8 @@
               "virtualNetworkProfile": {
                 "id": "[resourceId('Microsoft.Network/virtualNetworks', variables('clusterVNetName'))]",
                 "subnet": "[concat(resourceId('Microsoft.Network/virtualNetworks', variables('clusterVNetName')), '/subnets/', variables('clusterVNetSubnetName'))]"
-              }
+              },
+              "scriptActions": []
             }
           ]
         }
@@ -189,9 +204,9 @@
         "[concat('Microsoft.Storage/storageAccounts/',variables('clusterStorageAccountName'))]",
         "[concat('Microsoft.Network/virtualNetworks/',variables('clusterVNetName'))]"
       ],
-      "tags": { },
+      "tags": {},
       "properties": {
-        "clusterVersion": "3.5",
+        "clusterVersion": "[parameters('clusterVersion')]",
         "osType": "Linux",
         "tier": "standard",
         "clusterDefinition": {
@@ -231,7 +246,8 @@
               "virtualNetworkProfile": {
                 "id": "[resourceId('Microsoft.Network/virtualNetworks', variables('clusterVNetName'))]",
                 "subnet": "[concat(resourceId('Microsoft.Network/virtualNetworks', variables('clusterVNetName')), '/subnets/', variables('clusterVNetSubnetName'))]"
-              }
+              },
+              "scriptActions": []
             },
             {
               "name": "workernode",
@@ -248,25 +264,26 @@
               "virtualNetworkProfile": {
                 "id": "[resourceId('Microsoft.Network/virtualNetworks', variables('clusterVNetName'))]",
                 "subnet": "[concat(resourceId('Microsoft.Network/virtualNetworks', variables('clusterVNetName')), '/subnets/', variables('clusterVNetSubnetName'))]"
-              }
+              },
+              "scriptActions": []
             }
           ]
         }
       }
     }
   ],
-    "outputs": {
-        "vnet": {
-            "type": "object",
-            "value": "[reference(resourceId('Microsoft.Network/virtualNetworks',variables('clusterVNetName')))]"
-        },
-        "kafkaCluster": {
-            "type": "object",
-            "value": "[reference(resourceId('Microsoft.HDInsight/clusters',variables('kafkaClusterName')))]"
-        },
-        "sparkCluster": {
-            "type": "object",
-            "value": "[reference(resourceId('Microsoft.HDInsight/clusters',variables('sparkClusterName')))]"
-        }
+  "outputs": {
+    "vnet": {
+      "type": "object",
+      "value": "[reference(resourceId('Microsoft.Network/virtualNetworks',variables('clusterVNetName')))]"
+    },
+    "kafkaCluster": {
+      "type": "object",
+      "value": "[reference(resourceId('Microsoft.HDInsight/clusters',variables('kafkaClusterName')))]"
+    },
+    "sparkCluster": {
+      "type": "object",
+      "value": "[reference(resourceId('Microsoft.HDInsight/clusters',variables('sparkClusterName')))]"
     }
+  }
 }
